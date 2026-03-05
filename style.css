@@ -38,13 +38,67 @@ body {
 
 .game-header h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-size: clamp(1.2rem, 4vw, 2rem);
 }
 
 #status {
   margin: 6px 0 0;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 600;
+}
+
+.connection-card {
+  width: 100%;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.join-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+#joinCodeInput {
+  min-width: 0;
+  border-radius: 999px;
+  border: 1px solid #666;
+  background: #1f1f1f;
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+
+.pill-btn,
+.restart-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: #1976d2;
+  color: #fff;
+}
+
+.pill-btn:active,
+.restart-btn:active {
+  transform: scale(0.98);
+}
+
+.pill-btn[disabled],
+.restart-btn[disabled] {
+  opacity: 0.5;
+}
+
+.code-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #d9d9d9;
+  word-break: break-all;
 }
 
 .board-wrapper {
@@ -70,6 +124,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  border: 0;
 }
 
 .square.light {
@@ -100,7 +155,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: clamp(0.7rem, 2.1vw, 0.95rem);
+  font-size: clamp(0.65rem, 2.1vw, 0.92rem);
   font-weight: 700;
   user-select: none;
   border: 2px solid rgba(255, 255, 255, 0.25);
@@ -120,20 +175,6 @@ body {
   box-shadow: 0 0 0 3px gold inset;
 }
 
-.restart-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 10px 18px;
-  font-size: 1rem;
-  font-weight: 700;
-  background: #1976d2;
-  color: #fff;
-}
-
-.restart-btn:active {
-  transform: scale(0.98);
-}
-
 @media (max-width: 420px) {
   :root {
     --square-size: min(11.25vw, 52px);
@@ -141,5 +182,9 @@ body {
 
   body {
     padding: 10px;
+  }
+
+  .join-row {
+    grid-template-columns: 1fr;
   }
 }

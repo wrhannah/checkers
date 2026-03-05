@@ -1,31 +1,35 @@
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
+const hostBtn = document.getElementById('hostBtn');
+const joinBtn = document.getElementById('joinBtn');
+const joinCodeInput = document.getElementById('joinCodeInput');
+const codeText = document.getElementById('codeText');
+
+const PLAYER_NAME = { black: 'Walter', red: 'Dad' };
 
 let board = [];
-let currentTurn = 'red';
+let currentTurn = 'black';
 let selected = null;
 let validMoves = [];
+let gameOver = false;
+
+let peer = null;
+let connection = null;
+let myColor = null;
 
 function createInitialBoard() {
   const freshBoard = Array.from({ length: 8 }, () => Array(8).fill(null));
-
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 8; col++) {
-      if ((row + col) % 2 === 1) {
-        freshBoard[row][col] = { color: 'black', king: false };
-      }
+      if ((row + col) % 2 === 1) freshBoard[row][col] = { color: 'black', king: false };
     }
   }
-
   for (let row = 5; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      if ((row + col) % 2 === 1) {
-        freshBoard[row][col] = { color: 'red', king: false };
-      }
+      if ((row + col) % 2 === 1) freshBoard[row][col] = { color: 'red', king: false };
     }
   }
-
   return freshBoard;
 }
 
@@ -49,7 +53,6 @@ function getPieceMoves(row, col) {
     [-1, 1].forEach((colStep) => {
       const nextRow = row + rowStep;
       const nextCol = col + colStep;
-
       if (insideBoard(nextRow, nextCol) && !board[nextRow][nextCol]) {
         moves.push({ row: nextRow, col: nextCol, capture: null });
       }
@@ -58,13 +61,9 @@ function getPieceMoves(row, col) {
       const jumpCol = col + colStep * 2;
       if (!insideBoard(jumpRow, jumpCol) || board[jumpRow][jumpCol]) return;
 
-      const middlePiece = insideBoard(nextRow, nextCol) ? board[nextRow][nextCol] : null;
+      const middlePiece = board[nextRow]?.[nextCol];
       if (middlePiece && middlePiece.color !== piece.color) {
-        moves.push({
-          row: jumpRow,
-          col: jumpCol,
-          capture: { row: nextRow, col: nextCol }
-        });
+        moves.push({ row: jumpRow, col: jumpCol, capture: { row: nextRow, col: nextCol } });
       }
     });
   });
@@ -76,13 +75,34 @@ function getAllMoves(color) {
   const allMoves = [];
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      const piece = board[row][col];
-      if (piece && piece.color === color) {
-        allMoves.push(...getPieceMoves(row, col));
-      }
+      if (board[row][col]?.color === color) allMoves.push(...getPieceMoves(row, col));
     }
   }
   return allMoves;
+}
+
+function isMyTurn() {
+  return myColor && currentTurn === myColor;
+}
+
+function setStatus(text) {
+  statusEl.textContent = text;
+}
+
+function updateStatus() {
+  if (!connection || !connection.open || !myColor) {
+    setStatus('Connect to start');
+    return;
+  }
+
+  if (gameOver) return;
+
+  const playerTurnName = PLAYER_NAME[currentTurn];
+  if (isMyTurn()) {
+    setStatus(`${playerTurnName}'s turn (your move)`);
+  } else {
+    setStatus(`${playerTurnName}'s turn (waiting)`);
+  }
 }
 
 function drawBoard() {
@@ -95,11 +115,8 @@ function drawBoard() {
       square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
       square.dataset.row = row;
       square.dataset.col = col;
-      square.setAttribute('aria-label', `Row ${row + 1}, Column ${col + 1}`);
 
-      if (selected && selected.row === row && selected.col === col) {
-        square.classList.add('selected');
-      }
+      if (selected && selected.row === row && selected.col === col) square.classList.add('selected');
 
       const move = validMoves.find((m) => m.row === row && m.col === col);
       if (move) {
@@ -120,10 +137,16 @@ function drawBoard() {
     }
   }
 
-  statusEl.textContent = `${capitalize(currentTurn)}'s turn`;
+  updateStatus();
+}
+
+function sendMessage(payload) {
+  if (connection && connection.open) connection.send(payload);
 }
 
 function onSquareTap(event) {
+  if (!isMyTurn() || gameOver) return;
+
   const row = Number(event.currentTarget.dataset.row);
   const col = Number(event.currentTarget.dataset.col);
   const piece = board[row][col];
@@ -131,7 +154,7 @@ function onSquareTap(event) {
   if (selected) {
     const move = validMoves.find((m) => m.row === row && m.col === col);
     if (move) {
-      makeMove(selected.row, selected.col, move);
+      makeMove(selected.row, selected.col, move, true);
       return;
     }
   }
@@ -147,55 +170,166 @@ function onSquareTap(event) {
   drawBoard();
 }
 
-function makeMove(fromRow, fromCol, move) {
+function finishTurnIfNoMoves() {
+  if (getAllMoves(currentTurn).length === 0) {
+    gameOver = true;
+    const winnerColor = currentTurn === 'red' ? 'black' : 'red';
+    setStatus(`${PLAYER_NAME[winnerColor]} wins!`);
+    return true;
+  }
+  return false;
+}
+
+function makeMove(fromRow, fromCol, move, broadcast) {
   const piece = board[fromRow][fromCol];
   board[fromRow][fromCol] = null;
   board[move.row][move.col] = piece;
+  if (move.capture) board[move.capture.row][move.capture.col] = null;
 
-  if (move.capture) {
-    board[move.capture.row][move.capture.col] = null;
-  }
+  if (piece.color === 'red' && move.row === 0) piece.king = true;
+  if (piece.color === 'black' && move.row === 7) piece.king = true;
 
-  if (piece.color === 'red' && move.row === 0) {
-    piece.king = true;
-  }
-
-  if (piece.color === 'black' && move.row === 7) {
-    piece.king = true;
-  }
-
+  let mustContinue = false;
   if (move.capture) {
     selected = { row: move.row, col: move.col };
     const chainedCaptures = getPieceMoves(move.row, move.col).filter((m) => m.capture);
     if (chainedCaptures.length > 0) {
       validMoves = chainedCaptures;
-      drawBoard();
-      return;
+      mustContinue = true;
     }
   }
 
-  selected = null;
-  validMoves = [];
-  currentTurn = currentTurn === 'red' ? 'black' : 'red';
+  if (!mustContinue) {
+    selected = null;
+    validMoves = [];
+    currentTurn = currentTurn === 'red' ? 'black' : 'red';
+    finishTurnIfNoMoves();
+  }
 
-  if (getAllMoves(currentTurn).length === 0) {
-    statusEl.textContent = `${capitalize(currentTurn === 'red' ? 'black' : 'red')} wins!`;
-  } else {
-    drawBoard();
+  drawBoard();
+
+  if (broadcast) {
+    sendMessage({
+      type: 'move',
+      fromRow,
+      fromCol,
+      move,
+      nextTurn: currentTurn,
+      selected,
+      validMoves,
+      gameOver,
+      board
+    });
   }
 }
 
-function capitalize(text) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
-function restartGame() {
+function restartGame(sendRestart = false) {
   board = createInitialBoard();
-  currentTurn = 'red';
+  currentTurn = 'black';
   selected = null;
   validMoves = [];
+  gameOver = false;
   drawBoard();
+
+  if (sendRestart) sendMessage({ type: 'restart', board, currentTurn });
 }
 
-restartBtn.addEventListener('click', restartGame);
-restartGame();
+function setConnectedState() {
+  restartBtn.disabled = false;
+  hostBtn.disabled = true;
+  joinBtn.disabled = true;
+  joinCodeInput.disabled = true;
+}
+
+function bindConnectionHandlers(conn) {
+  connection = conn;
+
+  connection.on('open', () => {
+    setConnectedState();
+    updateStatus();
+    drawBoard();
+  });
+
+  connection.on('data', (data) => {
+    if (data.type === 'move') {
+      board = data.board;
+      currentTurn = data.nextTurn;
+      selected = null;
+      validMoves = [];
+      gameOver = data.gameOver;
+      drawBoard();
+      if (gameOver) {
+        const winner = currentTurn === 'red' ? 'Walter' : 'Dad';
+        setStatus(`${winner} wins!`);
+      }
+    }
+
+    if (data.type === 'restart') {
+      board = data.board;
+      currentTurn = data.currentTurn;
+      selected = null;
+      validMoves = [];
+      gameOver = false;
+      drawBoard();
+    }
+  });
+
+  connection.on('close', () => {
+    setStatus('Connection closed. Refresh to start a new game.');
+  });
+
+  connection.on('error', () => {
+    setStatus('Connection error. Refresh and try again.');
+  });
+}
+
+function createPeer() {
+  if (peer) return;
+  peer = new Peer();
+
+  peer.on('error', () => {
+    setStatus('Network setup failed. Refresh and try again.');
+  });
+
+  peer.on('connection', (incomingConnection) => {
+    myColor = 'black';
+    codeText.textContent = `Game code: ${peer.id}`;
+    bindConnectionHandlers(incomingConnection);
+    restartGame(false);
+  });
+}
+
+hostBtn.addEventListener('click', () => {
+  createPeer();
+  myColor = 'black';
+  setStatus('Creating game...');
+  peer.on('open', (id) => {
+    codeText.textContent = `Share this code with Dad: ${id}`;
+    setStatus('Waiting for Dad to join...');
+  });
+});
+
+joinBtn.addEventListener('click', () => {
+  const code = joinCodeInput.value.trim();
+  if (!code) {
+    setStatus('Enter a valid game code from Walter.');
+    return;
+  }
+
+  createPeer();
+  myColor = 'red';
+  peer.on('open', () => {
+    const conn = peer.connect(code);
+    bindConnectionHandlers(conn);
+    restartGame(false);
+    codeText.textContent = `Connected to game: ${code}`;
+  });
+});
+
+restartBtn.addEventListener('click', () => {
+  if (!connection || !connection.open) return;
+  restartGame(true);
+});
+
+board = createInitialBoard();
+drawBoard();

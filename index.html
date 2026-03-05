@@ -3,23 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mobile Checkers</title>
+    <title>Walter vs Dad Checkers</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <main class="game">
       <header class="game-header">
-        <h1>Checkers</h1>
-        <p id="status" aria-live="polite">Red's turn</p>
+        <h1>Walter vs Dad Checkers</h1>
+        <p id="status" aria-live="polite">Connect to start</p>
       </header>
+
+      <section class="connection-card" aria-label="Connection controls">
+        <button id="hostBtn" type="button" class="pill-btn">Host Game (Walter)</button>
+        <div class="join-row">
+          <input id="joinCodeInput" type="text" placeholder="Enter game code" aria-label="Game code" />
+          <button id="joinBtn" type="button" class="pill-btn">Join as Dad</button>
+        </div>
+        <p id="codeText" class="code-text">No game code yet.</p>
+      </section>
 
       <section class="board-wrapper">
         <div id="board" class="board" role="grid" aria-label="Checkers board"></div>
       </section>
 
-      <button id="restartBtn" type="button" class="restart-btn">Restart Game</button>
+      <button id="restartBtn" type="button" class="restart-btn" disabled>Restart Game</button>
     </main>
 
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
