@@ -17,42 +17,6 @@ let gameOver = false;
 let peer = null;
 let connection = null;
 let myColor = null;
-let audioContext = null;
-let lastMyTurnState = null;
-
-
-function ensureAudioContext() {
-  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioContext.state === 'suspended') {
-    audioContext.resume().catch(() => {});
-  }
-}
-
-function playTurnDing() {
-  try {
-    ensureAudioContext();
-    const now = audioContext.currentTime;
-
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, now);
-    oscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.1);
-
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-
-    oscillator.start(now);
-    oscillator.stop(now + 0.25);
-  } catch (_) {
-    // Ignore audio failures from device/browser policies.
-  }
-}
 
 function shouldFlipBoard() {
   return myColor === 'black';
@@ -136,21 +100,14 @@ function setStatus(text) {
 
 function updateStatus() {
   if (!connection || !connection.open || !myColor) {
-    lastMyTurnState = null;
     setStatus('Connect to start');
     return;
   }
 
   if (gameOver) return;
 
-  const myTurnNow = isMyTurn();
-  if (myTurnNow && lastMyTurnState === false) {
-    playTurnDing();
-  }
-  lastMyTurnState = myTurnNow;
-
   const playerTurnName = PLAYER_NAME[currentTurn];
-  if (myTurnNow) {
+  if (isMyTurn()) {
     setStatus(`${playerTurnName}'s turn (your move)`);
   } else {
     setStatus(`${playerTurnName}'s turn (waiting)`);
@@ -386,10 +343,6 @@ restartBtn.addEventListener('click', () => {
   if (!connection || !connection.open) return;
   restartGame(true);
 });
-
-
-document.addEventListener('pointerdown', ensureAudioContext, { passive: true });
-document.addEventListener('keydown', ensureAudioContext);
 
 board = createInitialBoard();
 drawBoard();
