@@ -18,15 +18,6 @@ let peer = null;
 let connection = null;
 let myColor = null;
 
-function shouldFlipBoard() {
-  return myColor === 'black';
-}
-
-function viewToModel(viewRow, viewCol) {
-  if (!shouldFlipBoard()) return { row: viewRow, col: viewCol };
-  return { row: 7 - viewRow, col: 7 - viewCol };
-}
-
 function createInitialBoard() {
   const freshBoard = Array.from({ length: 8 }, () => Array(8).fill(null));
   for (let row = 0; row < 3; row++) {
@@ -117,14 +108,13 @@ function updateStatus() {
 function drawBoard() {
   boardEl.innerHTML = '';
 
-  for (let viewRow = 0; viewRow < 8; viewRow++) {
-    for (let viewCol = 0; viewCol < 8; viewCol++) {
-      const { row, col } = viewToModel(viewRow, viewCol);
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
       const square = document.createElement('button');
       square.type = 'button';
-      square.className = `square ${(viewRow + viewCol) % 2 === 0 ? 'light' : 'dark'}`;
-      square.dataset.viewRow = viewRow;
-      square.dataset.viewCol = viewCol;
+      square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+      square.dataset.row = row;
+      square.dataset.col = col;
 
       if (selected && selected.row === row && selected.col === col) square.classList.add('selected');
 
@@ -157,9 +147,8 @@ function sendMessage(payload) {
 function onSquareTap(event) {
   if (!isMyTurn() || gameOver) return;
 
-  const viewRow = Number(event.currentTarget.dataset.viewRow);
-  const viewCol = Number(event.currentTarget.dataset.viewCol);
-  const { row, col } = viewToModel(viewRow, viewCol);
+  const row = Number(event.currentTarget.dataset.row);
+  const col = Number(event.currentTarget.dataset.col);
   const piece = board[row][col];
 
   if (selected) {
@@ -313,7 +302,6 @@ function createPeer() {
 hostBtn.addEventListener('click', () => {
   createPeer();
   myColor = 'black';
-  drawBoard();
   setStatus('Creating game...');
   peer.on('open', (id) => {
     codeText.textContent = `Share this code with Dad: ${id}`;
@@ -330,7 +318,6 @@ joinBtn.addEventListener('click', () => {
 
   createPeer();
   myColor = 'red';
-  drawBoard();
   peer.on('open', () => {
     const conn = peer.connect(code);
     bindConnectionHandlers(conn);
