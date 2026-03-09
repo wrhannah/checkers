@@ -63,11 +63,12 @@ function flashTurnScreen() {
 }
 
 function speakTurnAlert() {
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window) || !myColor) return;
 
   try {
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("It's your turn!");
+    const playerName = PLAYER_NAME[myColor];
+    const utterance = new SpeechSynthesisUtterance(`It's your turn, ${playerName}`);
     utterance.rate = 1.1;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
