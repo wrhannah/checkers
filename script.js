@@ -1,12 +1,10 @@
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
-const hostBtn = document.getElementById('hostBtn');
-const joinBtn = document.getElementById('joinBtn');
-const joinCodeInput = document.getElementById('joinCodeInput');
-const codeText = document.getElementById('codeText');
+const connectionText = document.getElementById('connectionText');
 
 const PLAYER_NAME = { black: 'Walter', red: 'Dad' };
+const ROOM_ID = 'walter-vs-dad-checkers-room';
 
 let board = [];
 let currentTurn = 'black';
@@ -17,6 +15,37 @@ let gameOver = false;
 let peer = null;
 let connection = null;
 let myColor = null;
+let audioContext = null;
+let lastMyTurnState = null;
+
+function ensureAudioContext() {
+  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+}
+
+function playTurnDing() {
+  try {
+    ensureAudioContext();
+    const now = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, now);
+    oscillator.frequency.exponentialRampToValueAtTime(1320, now + 0.1);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.25);
+  } catch (_) {
+    // Ignore browser/device sound policy failures.
+  }
+}
 
 function shouldFlipBoard() {
   return myColor === 'black';
@@ -100,18 +129,19 @@ function setStatus(text) {
 
 function updateStatus() {
   if (!connection || !connection.open || !myColor) {
-    setStatus('Connect to start');
+    lastMyTurnState = null;
+    setStatus('Auto-connecting players...');
     return;
   }
 
   if (gameOver) return;
 
+  const myTurnNow = isMyTurn();
+  if (myTurnNow && lastMyTurnState === false) playTurnDing();
+  lastMyTurnState = myTurnNow;
+
   const playerTurnName = PLAYER_NAME[currentTurn];
-  if (isMyTurn()) {
-    setStatus(`${playerTurnName}'s turn (your move)`);
-  } else {
-    setStatus(`${playerTurnName}'s turn (waiting)`);
-  }
+  setStatus(myTurnNow ? `${playerTurnName}'s turn (your move)` : `${playerTurnName}'s turn (waiting)`);
 }
 
 function drawBoard() {
@@ -220,17 +250,7 @@ function makeMove(fromRow, fromCol, move, broadcast) {
   drawBoard();
 
   if (broadcast) {
-    sendMessage({
-      type: 'move',
-      fromRow,
-      fromCol,
-      move,
-      nextTurn: currentTurn,
-      selected,
-      validMoves,
-      gameOver,
-      board
-    });
+    sendMessage({ type: 'move', board, nextTurn: currentTurn, gameOver });
   }
 }
 
@@ -240,6 +260,7 @@ function restartGame(sendRestart = false) {
   selected = null;
   validMoves = [];
   gameOver = false;
+  lastMyTurnState = null;
   drawBoard();
 
   if (sendRestart) sendMessage({ type: 'restart', board, currentTurn });
@@ -247,9 +268,6 @@ function restartGame(sendRestart = false) {
 
 function setConnectedState() {
   restartBtn.disabled = false;
-  hostBtn.disabled = true;
-  joinBtn.disabled = true;
-  joinCodeInput.disabled = true;
 }
 
 function bindConnectionHandlers(conn) {
@@ -257,7 +275,7 @@ function bindConnectionHandlers(conn) {
 
   connection.on('open', () => {
     setConnectedState();
-    updateStatus();
+    connectionText.textContent = `Connected: You are ${PLAYER_NAME[myColor]}.`;
     drawBoard();
   });
 
@@ -281,12 +299,15 @@ function bindConnectionHandlers(conn) {
       selected = null;
       validMoves = [];
       gameOver = false;
+      lastMyTurnState = null;
       drawBoard();
     }
   });
 
   connection.on('close', () => {
-    setStatus('Connection closed. Refresh to start a new game.');
+    setStatus('Connection closed. Refresh to auto-reconnect.');
+    connectionText.textContent = 'Disconnected.';
+    restartBtn.disabled = true;
   });
 
   connection.on('error', () => {
@@ -294,55 +315,68 @@ function bindConnectionHandlers(conn) {
   });
 }
 
-function createPeer() {
-  if (peer) return;
-  peer = new Peer();
+function becomeWalterHost() {
+  myColor = 'black';
+  peer = new Peer(ROOM_ID);
+  connectionText.textContent = 'You are Walter. Waiting for Dad to auto-join...';
 
-  peer.on('error', () => {
-    setStatus('Network setup failed. Refresh and try again.');
+  peer.on('open', () => {
+    setStatus('Waiting for Dad to join...');
   });
 
   peer.on('connection', (incomingConnection) => {
-    myColor = 'black';
-    codeText.textContent = `Game code: ${peer.id}`;
     bindConnectionHandlers(incomingConnection);
     restartGame(false);
   });
+
+  peer.on('error', (error) => {
+    if (error.type === 'peer-unavailable') return;
+    setStatus('Network error. Refresh and retry.');
+  });
 }
 
-hostBtn.addEventListener('click', () => {
-  createPeer();
-  myColor = 'black';
-  drawBoard();
-  setStatus('Creating game...');
-  peer.on('open', (id) => {
-    codeText.textContent = `Share this code with Dad: ${id}`;
-    setStatus('Waiting for Dad to join...');
-  });
-});
-
-joinBtn.addEventListener('click', () => {
-  const code = joinCodeInput.value.trim();
-  if (!code) {
-    setStatus('Enter a valid game code from Walter.');
-    return;
-  }
-
-  createPeer();
+function becomeDadJoiner() {
   myColor = 'red';
-  drawBoard();
+  peer = new Peer();
+  connectionText.textContent = 'You are Dad. Auto-joining Walter...';
+
   peer.on('open', () => {
-    const conn = peer.connect(code);
+    const conn = peer.connect(ROOM_ID, { reliable: true });
     bindConnectionHandlers(conn);
     restartGame(false);
-    codeText.textContent = `Connected to game: ${code}`;
   });
-});
+
+  peer.on('error', () => {
+    setStatus('Unable to auto-join. Refresh both devices and retry.');
+  });
+}
+
+function autoJoinGame() {
+  const probe = new Peer(ROOM_ID);
+
+  probe.on('open', () => {
+    probe.destroy();
+    becomeWalterHost();
+  });
+
+  probe.on('error', (error) => {
+    probe.destroy();
+    if (error.type === 'unavailable-id') {
+      becomeDadJoiner();
+      return;
+    }
+    setStatus('Auto-join failed. Refresh and retry.');
+  });
+}
 
 restartBtn.addEventListener('click', () => {
   if (!connection || !connection.open) return;
   restartGame(true);
 });
 
+document.addEventListener('pointerdown', ensureAudioContext, { passive: true });
+document.addEventListener('keydown', ensureAudioContext);
+
 board = createInitialBoard();
 drawBoard();
+autoJoinGame();

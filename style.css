@@ -53,27 +53,16 @@ body {
   border: 1px solid #444;
   border-radius: 12px;
   padding: 10px;
-  display: grid;
-  gap: 10px;
 }
 
-.join-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+.code-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #d9d9d9;
+  word-break: break-word;
+  text-align: center;
 }
 
-#joinCodeInput {
-  min-width: 0;
-  border-radius: 999px;
-  border: 1px solid #666;
-  background: #1f1f1f;
-  color: #fff;
-  padding: 10px 14px;
-  font-size: 0.95rem;
-}
-
-.pill-btn,
 .restart-btn {
   border: none;
   border-radius: 999px;
@@ -84,30 +73,25 @@ body {
   color: #fff;
 }
 
-.pill-btn:active,
 .restart-btn:active {
   transform: scale(0.98);
 }
 
-.pill-btn[disabled],
 .restart-btn[disabled] {
   opacity: 0.5;
-}
-
-.code-text {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #d9d9d9;
-  word-break: break-all;
 }
 
 .board-wrapper {
   width: 100%;
   display: flex;
   justify-content: center;
+  background: #39ff14;
+  border-radius: 14px;
+  padding: 10px;
 }
 
 .board {
+  background: #39ff14;
   width: calc(var(--square-size) * 8);
   height: calc(var(--square-size) * 8);
   display: grid;
@@ -182,9 +166,5 @@ body {
 
   body {
     padding: 10px;
-  }
-
-  .join-row {
-    grid-template-columns: 1fr;
   }
 }
