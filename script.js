@@ -18,6 +18,10 @@ let myColor = null;
 let audioContext = null;
 let lastMyTurnState = null;
 
+function updateRestartVisibility() {
+  restartBtn.style.display = myColor === 'red' ? 'inline-block' : 'none';
+}
+
 function ensureAudioContext() {
   if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
   if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
@@ -267,7 +271,8 @@ function restartGame(sendRestart = false) {
 }
 
 function setConnectedState() {
-  restartBtn.disabled = false;
+  updateRestartVisibility();
+  restartBtn.disabled = myColor !== 'red';
 }
 
 function bindConnectionHandlers(conn) {
@@ -308,6 +313,7 @@ function bindConnectionHandlers(conn) {
     setStatus('Connection closed. Refresh to auto-reconnect.');
     connectionText.textContent = 'Disconnected.';
     restartBtn.disabled = true;
+    updateRestartVisibility();
   });
 
   connection.on('error', () => {
@@ -317,6 +323,7 @@ function bindConnectionHandlers(conn) {
 
 function becomeWalterHost() {
   myColor = 'black';
+  updateRestartVisibility();
   peer = new Peer(ROOM_ID);
   connectionText.textContent = 'You are Walter. Waiting for Dad to auto-join...';
 
@@ -337,6 +344,7 @@ function becomeWalterHost() {
 
 function becomeDadJoiner() {
   myColor = 'red';
+  updateRestartVisibility();
   peer = new Peer();
   connectionText.textContent = 'You are Dad. Auto-joining Walter...';
 
@@ -377,6 +385,8 @@ restartBtn.addEventListener('click', () => {
 document.addEventListener('pointerdown', ensureAudioContext, { passive: true });
 document.addEventListener('keydown', ensureAudioContext);
 
+updateRestartVisibility();
+restartBtn.disabled = true;
 board = createInitialBoard();
 drawBoard();
 autoJoinGame();
