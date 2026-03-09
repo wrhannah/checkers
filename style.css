@@ -168,3 +168,14 @@ body {
     padding: 10px;
   }
 }
+
+
+@keyframes turnFlash {
+  0%, 100% { background: #222; }
+  25%, 75% { background: #ffef72; }
+  50% { background: #ffffff; }
+}
+
+body.turn-flash {
+  animation: turnFlash 0.18s linear 3;
+}

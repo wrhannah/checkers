@@ -17,6 +17,7 @@ let connection = null;
 let myColor = null;
 let audioContext = null;
 let lastMyTurnState = null;
+let flashTimeoutId = null;
 
 function updateRestartVisibility() {
   restartBtn.style.display = myColor === 'red' ? 'inline-block' : 'none';
@@ -49,6 +50,37 @@ function playTurnDing() {
   } catch (_) {
     // Ignore browser/device sound policy failures.
   }
+}
+
+
+function flashTurnScreen() {
+  document.body.classList.add('turn-flash');
+  if (flashTimeoutId) clearTimeout(flashTimeoutId);
+  flashTimeoutId = setTimeout(() => {
+    document.body.classList.remove('turn-flash');
+    flashTimeoutId = null;
+  }, 650);
+}
+
+function speakTurnAlert() {
+  if (!('speechSynthesis' in window)) return;
+
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance("It's your turn!");
+    utterance.rate = 1.1;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+  } catch (_) {
+    // Ignore speech failures on unsupported/blocked browsers.
+  }
+}
+
+function triggerTurnAlert() {
+  playTurnDing();
+  flashTurnScreen();
+  speakTurnAlert();
 }
 
 function shouldFlipBoard() {
@@ -141,7 +173,7 @@ function updateStatus() {
   if (gameOver) return;
 
   const myTurnNow = isMyTurn();
-  if (myTurnNow && lastMyTurnState === false) playTurnDing();
+  if (myTurnNow && lastMyTurnState === false) triggerTurnAlert();
   lastMyTurnState = myTurnNow;
 
   const playerTurnName = PLAYER_NAME[currentTurn];
