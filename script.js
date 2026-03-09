@@ -17,7 +17,6 @@ let connection = null;
 let myColor = null;
 let audioContext = null;
 let lastMyTurnState = null;
-let flashTimeoutId = null;
 
 function updateRestartVisibility() {
   restartBtn.style.display = myColor === 'red' ? 'inline-block' : 'none';
@@ -53,13 +52,12 @@ function playTurnDing() {
 }
 
 
-function flashTurnScreen() {
+function startTurnFlash() {
   document.body.classList.add('turn-flash');
-  if (flashTimeoutId) clearTimeout(flashTimeoutId);
-  flashTimeoutId = setTimeout(() => {
-    document.body.classList.remove('turn-flash');
-    flashTimeoutId = null;
-  }, 650);
+}
+
+function stopTurnFlash() {
+  document.body.classList.remove('turn-flash');
 }
 
 function speakTurnAlert() {
@@ -80,7 +78,7 @@ function speakTurnAlert() {
 
 function triggerTurnAlert() {
   playTurnDing();
-  flashTurnScreen();
+  startTurnFlash();
   speakTurnAlert();
 }
 
@@ -167,14 +165,23 @@ function setStatus(text) {
 function updateStatus() {
   if (!connection || !connection.open || !myColor) {
     lastMyTurnState = null;
+    stopTurnFlash();
     setStatus('Auto-connecting players...');
     return;
   }
 
-  if (gameOver) return;
+  if (gameOver) {
+    stopTurnFlash();
+    return;
+  }
 
   const myTurnNow = isMyTurn();
-  if (myTurnNow && lastMyTurnState === false) triggerTurnAlert();
+  if (myTurnNow && lastMyTurnState !== true) {
+    triggerTurnAlert();
+  }
+  if (!myTurnNow) {
+    stopTurnFlash();
+  }
   lastMyTurnState = myTurnNow;
 
   const playerTurnName = PLAYER_NAME[currentTurn];
@@ -298,6 +305,7 @@ function restartGame(sendRestart = false) {
   validMoves = [];
   gameOver = false;
   lastMyTurnState = null;
+  stopTurnFlash();
   drawBoard();
 
   if (sendRestart) sendMessage({ type: 'restart', board, currentTurn });
@@ -343,6 +351,7 @@ function bindConnectionHandlers(conn) {
   });
 
   connection.on('close', () => {
+    stopTurnFlash();
     setStatus('Connection closed. Refresh to auto-reconnect.');
     connectionText.textContent = 'Disconnected.';
     restartBtn.disabled = true;
