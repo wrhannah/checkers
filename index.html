@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Walter vs. Dad Checkers</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="game">
+      <header class="game-header">
+        <h1>Walter vs. Dad Checkers</h1>
+        <p id="status" aria-live="polite">Auto-connecting players...</p>
+      </header>
+
+      <section class="connection-card" aria-label="Connection status">
+        <p id="connectionText" class="code-text">Looking for Walter/Dad game...</p>
+      </section>
+
+      <section class="board-wrapper">
+        <div id="board" class="board" role="grid" aria-label="Checkers board"></div>
+      </section>
+
+      <button id="restartBtn" type="button" class="restart-btn" disabled>Restart Game</button>
+    </main>
+
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
