@@ -17,6 +17,7 @@ let connection = null;
 let myColor = null;
 let audioContext = null;
 let lastMyTurnState = null;
+let lastOpponentMove = null;
 
 function updateRestartVisibility() {
   restartBtn.style.display = myColor === 'red' ? 'inline-block' : 'none';
@@ -202,6 +203,15 @@ function drawBoard() {
 
       if (selected && selected.row === row && selected.col === col) square.classList.add('selected');
 
+      if (lastOpponentMove) {
+        if (lastOpponentMove.from.row === row && lastOpponentMove.from.col === col) {
+          square.classList.add('opponent-last-from');
+        }
+        if (lastOpponentMove.to.row === row && lastOpponentMove.to.col === col) {
+          square.classList.add('opponent-last-to');
+        }
+      }
+
       const move = validMoves.find((m) => m.row === row && m.col === col);
       if (move) {
         square.classList.add('valid-move');
@@ -294,7 +304,16 @@ function makeMove(fromRow, fromCol, move, broadcast) {
   drawBoard();
 
   if (broadcast) {
-    sendMessage({ type: 'move', board, nextTurn: currentTurn, gameOver });
+    sendMessage({
+      type: 'move',
+      board,
+      nextTurn: currentTurn,
+      gameOver,
+      fromRow,
+      fromCol,
+      toRow: move.row,
+      toCol: move.col
+    });
   }
 }
 
@@ -305,6 +324,7 @@ function restartGame(sendRestart = false) {
   validMoves = [];
   gameOver = false;
   lastMyTurnState = null;
+  lastOpponentMove = null;
   stopTurnFlash();
   drawBoard();
 
@@ -332,6 +352,12 @@ function bindConnectionHandlers(conn) {
       selected = null;
       validMoves = [];
       gameOver = data.gameOver;
+      if (typeof data.fromRow === 'number' && typeof data.fromCol === 'number' && typeof data.toRow === 'number' && typeof data.toCol === 'number') {
+        lastOpponentMove = {
+          from: { row: data.fromRow, col: data.fromCol },
+          to: { row: data.toRow, col: data.toCol }
+        };
+      }
       drawBoard();
       if (gameOver) {
         const winner = currentTurn === 'red' ? 'Walter' : 'Dad';
@@ -346,6 +372,7 @@ function bindConnectionHandlers(conn) {
       validMoves = [];
       gameOver = false;
       lastMyTurnState = null;
+      lastOpponentMove = null;
       drawBoard();
     }
   });

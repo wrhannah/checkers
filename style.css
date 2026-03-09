@@ -179,3 +179,12 @@ body {
 body.turn-flash {
   animation: turnFlash 0.18s linear infinite;
 }
+
+
+.square.opponent-last-from {
+  box-shadow: inset 0 0 0 4px #29b6f6;
+}
+
+.square.opponent-last-to {
+  box-shadow: inset 0 0 0 4px #ab47bc;
+}
